@@ -51,12 +51,20 @@ export class PlaceholderDetector {
   }
 
   async isPlaceholder(imageUrl: string): Promise<PlaceholderResult> {
+    if (this.placeholders.length === 0) {
+      return createNoMatchResult();
+    }
+
     const buffer = await this.fetchImage(imageUrl);
     const hash = await computeDHash(buffer);
     return this.compare(hash);
   }
 
   async checkMany(imageUrls: string[]): Promise<PlaceholderResult[]> {
+    if (this.placeholders.length === 0) {
+      return imageUrls.map(() => createNoMatchResult());
+    }
+
     const results: PlaceholderResult[] = [];
     for (let i = 0; i < imageUrls.length; i += this.concurrency) {
       const batch = imageUrls.slice(i, i + this.concurrency);
@@ -83,7 +91,7 @@ export class PlaceholderDetector {
 
   private compare(hash: string): PlaceholderResult {
     if (this.placeholders.length === 0) {
-      return { isPlaceholder: false, confidence: 0, matchedPlaceholder: null, distance: 64 };
+      return createNoMatchResult();
     }
 
     let bestDistance = Infinity;
@@ -121,4 +129,13 @@ function toErrorMessage(error: unknown): string {
     return error.message;
   }
   return String(error);
+}
+
+function createNoMatchResult(): PlaceholderResult {
+  return {
+    isPlaceholder: false,
+    confidence: 0,
+    matchedPlaceholder: null,
+    distance: 64,
+  };
 }

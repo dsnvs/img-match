@@ -55,6 +55,8 @@ await detector.addPlaceholder("https://cdn.example.com/placeholder.png", "no-ima
 
 Checks a single image against all registered placeholders. Returns a `PlaceholderResult`.
 
+If no placeholders are registered, returns the standard non-match result without fetching the image.
+
 Rejects if the image cannot be fetched or decoded.
 
 ```typescript
@@ -64,6 +66,8 @@ const result = await detector.isPlaceholder("https://cdn.example.com/items/widge
 #### `detector.checkMany(imageUrls)`
 
 Checks multiple images concurrently, respecting the configured concurrency limit. Returns an array of `PlaceholderResult` in the same order as the input URLs.
+
+If no placeholders are registered, returns one standard non-match result per URL without fetching any images.
 
 If an individual URL fails to fetch or decode, `checkMany` does not reject the whole call. Instead, that URL's result contains `isPlaceholder: false`, `confidence: 0`, `distance: 64`, and an `error` message.
 
@@ -80,7 +84,7 @@ const results = await detector.checkMany([
 {
   isPlaceholder: boolean;       // true if distance <= threshold
   confidence: number;           // 0 to 1 (1 = exact match)
-  matchedPlaceholder: string | null; // label of the closest match, or null
+  matchedPlaceholder: string | null; // label of the matched placeholder, or null when no placeholder is within threshold
   distance: number;             // raw Hamming distance (0-64)
   error?: string;               // present when checkMany could not process that URL
 }
