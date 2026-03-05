@@ -30,5 +30,9 @@ const PRESETS: Record<HashSize, Readonly<HashPreset>> = {
 };
 
 export function getHashPreset(hashSize: HashSize): HashPreset {
-  return PRESETS[hashSize];
+  const preset = PRESETS[hashSize as HashSize];
+  if (!preset) {
+    throw new RangeError("`hashSize` must be one of: BIT_64, BIT_128, BIT_256");
+  }
+  return preset;
 }

@@ -89,4 +89,13 @@ describe("PlaceholderDetector empty state", () => {
     ]);
     expect(fetchSpy).not.toHaveBeenCalled();
   });
+
+  it("throws RangeError for unsupported hashSize values", () => {
+    expect(
+      () => new PlaceholderDetector({ hashSize: "BIT_512" as HashSize }),
+    ).toThrow(RangeError);
+    expect(
+      () => new PlaceholderDetector({ hashSize: "BIT_512" as HashSize }),
+    ).toThrow(/hashSize/);
+  });
 });
