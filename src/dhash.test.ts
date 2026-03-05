@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import sharp from "sharp";
 import { computeDHash } from "./dhash.js";
 import { hammingDistance } from "./hamming.js";
+import { HashSize } from "./hash-size.js";
 
 // Helper: create a solid-color image buffer
 async function solidImage(r: number, g: number, b: number, size = 64): Promise<Buffer> {
@@ -74,5 +75,44 @@ describe("computeDHash", () => {
     const hashOriginal = await computeDHash(original);
     const hashRecompressed = await computeDHash(recompressedPng);
     expect(hammingDistance(hashOriginal, hashRecompressed)).toBeLessThanOrEqual(5);
+  });
+
+  it("returns a 16-character hex string for BIT_64 (default)", async () => {
+    const buf = await solidImage(128, 128, 128);
+    const hash = await computeDHash(buf, { hashSize: HashSize.BIT_64 });
+    expect(hash).toMatch(/^[0-9a-f]{16}$/);
+  });
+
+  it("returns a 32-character hex string for BIT_128", async () => {
+    const buf = await solidImage(128, 128, 128);
+    const hash = await computeDHash(buf, { hashSize: HashSize.BIT_128 });
+    expect(hash).toMatch(/^[0-9a-f]{32}$/);
+  });
+
+  it("returns a 64-character hex string for BIT_256", async () => {
+    const buf = await solidImage(128, 128, 128);
+    const hash = await computeDHash(buf, { hashSize: HashSize.BIT_256 });
+    expect(hash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("produces deterministic output for BIT_128", async () => {
+    const buf = await horizontalGradient();
+    const hash1 = await computeDHash(buf, { hashSize: HashSize.BIT_128 });
+    const hash2 = await computeDHash(buf, { hashSize: HashSize.BIT_128 });
+    expect(hash1).toBe(hash2);
+  });
+
+  it("produces deterministic output for BIT_256", async () => {
+    const buf = await horizontalGradient();
+    const hash1 = await computeDHash(buf, { hashSize: HashSize.BIT_256 });
+    const hash2 = await computeDHash(buf, { hashSize: HashSize.BIT_256 });
+    expect(hash1).toBe(hash2);
+  });
+
+  it("BIT_64 with options bag matches original no-options call", async () => {
+    const buf = await horizontalGradient();
+    const hashNoOpts = await computeDHash(buf);
+    const hashWithOpts = await computeDHash(buf, { hashSize: HashSize.BIT_64 });
+    expect(hashWithOpts).toBe(hashNoOpts);
   });
 });
