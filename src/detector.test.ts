@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type Server } from "http";
 import sharp from "sharp";
 import { PlaceholderDetector } from "./detector.js";
+import { HashSize } from "./hash-size.js";
 
 let server: Server;
 let port: number;
@@ -202,5 +203,45 @@ describe("PlaceholderDetector", () => {
     // The old gradient entry should be gone, so gradient should NOT match at threshold 0
     const gradResult = await detector.isPlaceholder(url("real-gradient"));
     expect(gradResult.isPlaceholder).toBe(false);
+  });
+
+  it("uses the preset default threshold when hashSize is BIT_128", async () => {
+    const detector = new PlaceholderDetector({ hashSize: HashSize.BIT_128 });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+    const result = await detector.isPlaceholder(url("placeholder-gray"));
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.distance).toBe(0);
+    expect(result.confidence).toBe(1);
+  });
+
+  it("validates explicit threshold against the active preset", () => {
+    expect(() => new PlaceholderDetector({ hashSize: HashSize.BIT_64, threshold: 65 })).toThrow(/threshold/);
+    expect(() => new PlaceholderDetector({ hashSize: HashSize.BIT_128, threshold: 129 })).toThrow(/threshold/);
+    expect(() => new PlaceholderDetector({ hashSize: HashSize.BIT_256, threshold: 257 })).toThrow(/threshold/);
+  });
+
+  it("normalizes confidence using the active preset max distance", async () => {
+    const detector = new PlaceholderDetector({ hashSize: HashSize.BIT_256, threshold: 256 });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+    const result = await detector.isPlaceholder(url("real-gradient"));
+    // confidence should be based on 256-bit max distance
+    expect(result.confidence).toBeGreaterThanOrEqual(0);
+    expect(result.confidence).toBeLessThanOrEqual(1);
+  });
+
+  it("returns no-match with preset max distance when no placeholders are registered (BIT_128)", async () => {
+    const detector = new PlaceholderDetector({ hashSize: HashSize.BIT_128 });
+    const result = await detector.isPlaceholder(url("real-gradient"));
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.distance).toBe(128);
+    expect(result.confidence).toBe(0);
+  });
+
+  it("returns no-match with preset max distance when no placeholders are registered (BIT_256)", async () => {
+    const detector = new PlaceholderDetector({ hashSize: HashSize.BIT_256 });
+    const result = await detector.isPlaceholder(url("real-gradient"));
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.distance).toBe(256);
+    expect(result.confidence).toBe(0);
   });
 });
