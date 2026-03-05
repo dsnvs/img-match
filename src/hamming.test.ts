@@ -25,4 +25,9 @@ describe("hammingDistance", () => {
     const b = "1234567890abcdef";
     expect(hammingDistance(a, b)).toBe(hammingDistance(b, a));
   });
+
+  it("throws for invalid hash input", () => {
+    expect(() => hammingDistance("xyz", "0000000000000000")).toThrow(/hexadecimal/);
+    expect(() => hammingDistance("0000000000000000", "123")).toThrow(/hexadecimal/);
+  });
 });

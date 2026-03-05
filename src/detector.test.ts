@@ -137,6 +137,29 @@ describe("PlaceholderDetector", () => {
     expect(results[2].isPlaceholder).toBe(false);
   });
 
+  it("checkMany returns one result per URL even when some fetches fail", async () => {
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const results = await detector.checkMany([
+      url("placeholder-gray"),
+      url("missing-image"),
+      url("real-gradient"),
+    ]);
+
+    expect(results).toHaveLength(3);
+    expect(results[0].isPlaceholder).toBe(true);
+
+    expect(results[1].isPlaceholder).toBe(false);
+    expect(results[1].confidence).toBe(0);
+    expect(results[1].matchedPlaceholder).toBeNull();
+    expect(results[1].distance).toBe(64);
+    expect(results[1].error).toContain("Failed to fetch image: 404");
+
+    expect(results[2].isPlaceholder).toBe(false);
+    expect(results[2].error).toBeUndefined();
+  });
+
   it("returns non-match when no placeholders are registered", async () => {
     const detector = new PlaceholderDetector();
     const result = await detector.isPlaceholder(url("real-gradient"));
@@ -151,5 +174,17 @@ describe("PlaceholderDetector", () => {
     await expect(
       detector.addPlaceholder("http://localhost:1/nonexistent", "bad"),
     ).rejects.toThrow();
+  });
+
+  it("throws when threshold is outside the supported range", () => {
+    expect(() => new PlaceholderDetector({ threshold: -1 })).toThrow(/threshold/);
+    expect(() => new PlaceholderDetector({ threshold: 65 })).toThrow(/threshold/);
+    expect(() => new PlaceholderDetector({ threshold: 1.5 })).toThrow(/threshold/);
+  });
+
+  it("throws when concurrency is not a positive integer", () => {
+    expect(() => new PlaceholderDetector({ concurrency: 0 })).toThrow(/concurrency/);
+    expect(() => new PlaceholderDetector({ concurrency: -1 })).toThrow(/concurrency/);
+    expect(() => new PlaceholderDetector({ concurrency: 2.5 })).toThrow(/concurrency/);
   });
 });

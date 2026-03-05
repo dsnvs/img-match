@@ -11,6 +11,7 @@ export interface PlaceholderResult {
   confidence: number;
   matchedPlaceholder: string | null;
   distance: number;
+  error?: string;
 }
 
 interface RegisteredPlaceholder {
@@ -24,8 +25,18 @@ export class PlaceholderDetector {
   private concurrency: number;
 
   constructor(options: DetectorOptions = {}) {
-    this.threshold = options.threshold ?? 10;
-    this.concurrency = options.concurrency ?? 8;
+    const threshold = options.threshold ?? 10;
+    if (!Number.isInteger(threshold) || threshold < 0 || threshold > 64) {
+      throw new RangeError("`threshold` must be an integer between 0 and 64");
+    }
+
+    const concurrency = options.concurrency ?? 8;
+    if (!Number.isInteger(concurrency) || concurrency < 1) {
+      throw new RangeError("`concurrency` must be a positive integer");
+    }
+
+    this.threshold = threshold;
+    this.concurrency = concurrency;
   }
 
   async addPlaceholder(imageUrl: string, label: string): Promise<void> {
@@ -44,10 +55,23 @@ export class PlaceholderDetector {
     const results: PlaceholderResult[] = [];
     for (let i = 0; i < imageUrls.length; i += this.concurrency) {
       const batch = imageUrls.slice(i, i + this.concurrency);
-      const batchResults = await Promise.all(
+      const batchResults = await Promise.allSettled(
         batch.map((url) => this.isPlaceholder(url)),
       );
-      results.push(...batchResults);
+      for (const result of batchResults) {
+        if (result.status === "fulfilled") {
+          results.push(result.value);
+          continue;
+        }
+
+        results.push({
+          isPlaceholder: false,
+          confidence: 0,
+          matchedPlaceholder: null,
+          distance: 64,
+          error: toErrorMessage(result.reason),
+        });
+      }
     }
     return results;
   }
@@ -85,4 +109,11 @@ export class PlaceholderDetector {
     }
     return Buffer.from(await response.arrayBuffer());
   }
+}
+
+function toErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+  return String(error);
 }

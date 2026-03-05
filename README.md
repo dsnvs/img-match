@@ -38,8 +38,10 @@ if (result.isPlaceholder) {
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `threshold` | `number` | `10` | Max Hamming distance to consider a match (0-64) |
-| `concurrency` | `number` | `8` | Max concurrent image fetches in `checkMany` |
+| `threshold` | `number` | `10` | Max Hamming distance to consider a match (integer from 0 to 64) |
+| `concurrency` | `number` | `8` | Max concurrent image fetches in `checkMany` (positive integer) |
+
+Invalid option values throw a `RangeError`.
 
 #### `detector.addPlaceholder(imageUrl, label)`
 
@@ -61,6 +63,8 @@ const result = await detector.isPlaceholder("https://cdn.example.com/items/widge
 
 Checks multiple images concurrently, respecting the configured concurrency limit. Returns an array of `PlaceholderResult` in the same order as the input URLs.
 
+If an individual URL fails to fetch or decode, `checkMany` does not reject the whole call. Instead, that URL's result contains `isPlaceholder: false`, `confidence: 0`, `distance: 64`, and an `error` message.
+
 ```typescript
 const results = await detector.checkMany([
   "https://cdn.example.com/items/widget.png",
@@ -76,6 +80,7 @@ const results = await detector.checkMany([
   confidence: number;           // 0 to 1 (1 = exact match)
   matchedPlaceholder: string | null; // label of the closest match, or null
   distance: number;             // raw Hamming distance (0-64)
+  error?: string;               // present when checkMany could not process that URL
 }
 ```
 
@@ -98,6 +103,8 @@ const hash = await computeDHash(buffer); // "a3f1b2c4d5e6f789"
 #### `hammingDistance(a, b)`
 
 Computes the Hamming distance between two 16-character hex hash strings.
+
+Throws a `TypeError` if either hash is not a valid 16-character hexadecimal string.
 
 ```typescript
 import { hammingDistance } from "placeholder-detect";
