@@ -42,7 +42,12 @@ export class PlaceholderDetector {
   async addPlaceholder(imageUrl: string, label: string): Promise<void> {
     const buffer = await this.fetchImage(imageUrl);
     const hash = await computeDHash(buffer);
-    this.placeholders.push({ label, hash });
+    const existing = this.placeholders.findIndex((p) => p.label === label);
+    if (existing !== -1) {
+      this.placeholders[existing] = { label, hash };
+    } else {
+      this.placeholders.push({ label, hash });
+    }
   }
 
   async isPlaceholder(imageUrl: string): Promise<PlaceholderResult> {

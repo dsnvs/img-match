@@ -55,6 +55,8 @@ await detector.addPlaceholder("https://cdn.example.com/placeholder.png", "no-ima
 
 Checks a single image against all registered placeholders. Returns a `PlaceholderResult`.
 
+Rejects if the image cannot be fetched or decoded.
+
 ```typescript
 const result = await detector.isPlaceholder("https://cdn.example.com/items/widget.png");
 ```

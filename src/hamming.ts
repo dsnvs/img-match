@@ -10,8 +10,8 @@ export function hammingDistance(a: string, b: string): number {
   let xor = x ^ y;
   let count = 0;
   while (xor > 0n) {
-    count += Number(xor & 1n);
-    xor >>= 1n;
+    xor &= xor - 1n;
+    count++;
   }
   return count;
 }

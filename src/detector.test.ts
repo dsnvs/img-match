@@ -187,4 +187,20 @@ describe("PlaceholderDetector", () => {
     expect(() => new PlaceholderDetector({ concurrency: -1 })).toThrow(/concurrency/);
     expect(() => new PlaceholderDetector({ concurrency: 2.5 })).toThrow(/concurrency/);
   });
+
+  it("overwrites existing placeholder when adding with the same label", async () => {
+    const detector = new PlaceholderDetector({ threshold: 0 });
+    await detector.addPlaceholder(url("real-gradient"), "dup");
+    await detector.addPlaceholder(url("real-noise"), "dup");
+
+    // After overwrite, checking the noise image should match "dup" exactly
+    const result = await detector.isPlaceholder(url("real-noise"));
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("dup");
+    expect(result.distance).toBe(0);
+
+    // The old gradient entry should be gone, so gradient should NOT match at threshold 0
+    const gradResult = await detector.isPlaceholder(url("real-gradient"));
+    expect(gradResult.isPlaceholder).toBe(false);
+  });
 });
