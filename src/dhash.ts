@@ -23,6 +23,8 @@ export async function computeDHash(
     }
     case HashSize.BIT_256:
       return computeHorizontalDHash(buffer, 17, 16);
+    default:
+      throw new TypeError(`Unsupported hash size: ${hashSize}`);
   }
 }
 
