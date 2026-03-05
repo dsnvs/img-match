@@ -1,5 +1,5 @@
 import sharp from "sharp";
-import { DEFAULT_HASH_SIZE, HashSize, getHashPreset } from "./hash-size.js";
+import { DEFAULT_HASH_SIZE, HashSize } from "./hash-size.js";
 
 export interface ComputeDHashOptions {
   hashSize?: HashSize;
@@ -50,9 +50,8 @@ async function computeHorizontalDHash(
     }
   }
 
-  const hexLen = getHashPreset(
-    cols * height === 64 ? HashSize.BIT_64 : HashSize.BIT_256,
-  ).hexLength;
+  const bits = cols * height;
+  const hexLen = Math.ceil(bits / 4);
   return hash.toString(16).padStart(hexLen, "0");
 }
 
@@ -80,5 +79,7 @@ async function computeVerticalDHash(
     }
   }
 
-  return hash.toString(16).padStart(16, "0");
+  const bits = rows * width;
+  const hexLen = Math.ceil(bits / 4);
+  return hash.toString(16).padStart(hexLen, "0");
 }
