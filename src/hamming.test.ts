@@ -30,4 +30,16 @@ describe("hammingDistance", () => {
     expect(() => hammingDistance("xyz", "0000000000000000")).toThrow(/hexadecimal/);
     expect(() => hammingDistance("0000000000000000", "123")).toThrow(/hexadecimal/);
   });
+
+  it("supports 32-character hashes", () => {
+    expect(hammingDistance("0".repeat(32), "f".repeat(32))).toBe(128);
+  });
+
+  it("supports 64-character hashes", () => {
+    expect(hammingDistance("0".repeat(64), "f".repeat(64))).toBe(256);
+  });
+
+  it("rejects mixed hash lengths", () => {
+    expect(() => hammingDistance("0".repeat(16), "0".repeat(32))).toThrow(/same length/);
+  });
 });
