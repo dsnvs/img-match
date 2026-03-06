@@ -26,6 +26,41 @@ Shared configuration file imported by all scripts. Edit this single file to chan
 | `SAVE_MATCHES` | When `true`, the tuning helper saves matched and non-matching test images to disk for visual review. |
 | `fetchImage()` | Shared fetch utility that validates HTTP status, content-type, and image decodability. |
 
+## Finding Your Ideal Parameters
+
+Follow these steps to find the best hash size and threshold for your dataset.
+
+### 1. Set up your images
+
+In `variables.ts`, add your known placeholder image URLs to `PLACEHOLDER_URLS` and a representative sample of real product/item images (including some that are placeholders) to `TEST_URLS`. Set `SAVE_MATCHES = true`.
+
+### 2. Run the tuning helper
+
+```sh
+npx tsx scripts/tuning-helper.ts
+```
+
+The output shows a table for each hash size (BIT_64, BIT_128, BIT_256). For each test image you'll see its **distance** to the closest placeholder and a **confidence** percentage.
+
+### 3. Check the results
+
+- **Transform tests** should all show `MATCH`. If a placeholder's resize or padding variant doesn't match itself, that hash size may not be robust enough for your images.
+- **Test URLs** — look for two kinds of errors:
+  - **False positives** (non-placeholder images marked `MATCH`): check `placeholder-match/<HashSize>/` for images that shouldn't be there.
+  - **False negatives** (placeholder images marked `NO MATCH`): check `placeholder-miss/<HashSize>/` for placeholders that were missed.
+
+### 4. Adjust the threshold
+
+If you see false positives, lower the threshold. If you see false negatives, raise it. Set per-hash-size overrides in the `THRESHOLDS` object in `variables.ts` and re-run until both folders look correct.
+
+### 5. Pick a hash size
+
+- **BIT_64** — fastest, works well for most cases.
+- **BIT_128** — better when placeholders share similar horizontal patterns.
+- **BIT_256** — most precise, best for large or detailed placeholder sets.
+
+Choose the smallest hash size where your results are clean (no false positives or negatives). If multiple hash sizes work, prefer BIT_64 for speed.
+
 ## Scripts
 
 ### `tuning-helper.ts`

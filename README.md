@@ -158,6 +158,28 @@ Each preset has a default threshold that works well for most cases. If you need 
 - **Higher threshold** = looser matching, fewer false negatives
 - Use the `confidence` and `distance` fields in the result to analyze your data and find the right value
 
+### Tuning Scripts
+
+The `scripts/` directory contains helper tools for finding the ideal hash size and threshold for your dataset. All scripts run with [tsx](https://github.com/privatenumber/tsx) and share a single configuration file (`scripts/variables.ts`) where you set your placeholder URLs, test image URLs, and threshold overrides.
+
+```bash
+# Primary tuning tool — runs transform tests and compares test images against
+# placeholders at every hash size, reporting distance, confidence, and timing.
+# Set SAVE_MATCHES = true in variables.ts to save matched and non-matching
+# images to disk for visual inspection.
+npx tsx scripts/tuning-helper.ts
+
+# Cross-match — verifies that all registered placeholders match each other
+# at every hash size (requires at least 2 placeholder URLs).
+npx tsx scripts/placeholder-cross-match.ts
+
+# Benchmark — measures raw hashing + comparison throughput with network
+# removed from the equation.
+npx tsx scripts/benchmark.ts
+```
+
+See [`scripts/README.md`](scripts/README.md) for full details on configuration and each script.
+
 ## License
 
 MIT
