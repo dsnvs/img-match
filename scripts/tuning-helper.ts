@@ -215,6 +215,8 @@ async function main() {
 
   // --- Run each hash size ---
 
+  const matchedPerImage = new Map<string, Set<HashSize>>();
+
   for (const hashSize of HASH_SIZES) {
     const preset = getHashPreset(hashSize);
     const threshold = THRESHOLDS[hashSize] ?? preset.defaultThreshold;
@@ -265,6 +267,8 @@ async function main() {
       testRows.push({ name, hash, distance: best.distance, matched: best.matched, timeMs: elapsed });
       if (best.distance <= threshold) {
         matched.push({ name, buf });
+        if (!matchedPerImage.has(name)) matchedPerImage.set(name, new Set());
+        matchedPerImage.get(name)!.add(hashSize);
       } else {
         missed.push({ name, buf });
       }
@@ -289,6 +293,45 @@ async function main() {
       }
       console.log(`  Saved ${missed.length} missed image(s) to ${dir}/`);
     }
+  }
+
+  // --- Inconsistent results across hash sizes ---
+
+  const testImageNames = testImages.map((img) => img.name);
+  const inconsistent = testImageNames.filter((name) => {
+    const matchedSizes = matchedPerImage.get(name);
+    return matchedSizes && matchedSizes.size > 0 && matchedSizes.size < HASH_SIZES.length;
+  });
+
+  if (inconsistent.length > 0) {
+    console.log(`\n${"=".repeat(80)}`);
+    console.log(`  Inconsistent results (${inconsistent.length} image(s))`);
+    console.log(`  These images matched in some hash sizes but not others:\n`);
+
+    const nameWidth = Math.max(40, ...inconsistent.map((n) => n.length + 2));
+    const header = [
+      "Image".padEnd(nameWidth),
+      ...HASH_SIZES.map((h) => h.padEnd(10)),
+    ].join(" | ");
+    const separator = [
+      "-".repeat(nameWidth),
+      ...HASH_SIZES.map(() => "-".repeat(10)),
+    ].join("-+-");
+
+    console.log(`  ${separator}`);
+    console.log(`  ${header}`);
+    console.log(`  ${separator}`);
+
+    for (const name of inconsistent) {
+      const sizes = matchedPerImage.get(name)!;
+      const cells = [
+        name.padEnd(nameWidth),
+        ...HASH_SIZES.map((h) => (sizes.has(h) ? "MATCH" : "MISS").padEnd(10)),
+      ];
+      console.log(`  ${cells.join(" | ")}`);
+    }
+
+    console.log(`  ${separator}`);
   }
 
   console.log("");
