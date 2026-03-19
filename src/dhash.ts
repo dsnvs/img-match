@@ -5,6 +5,15 @@ export interface ComputeDHashOptions {
   hashSize?: HashSize;
 }
 
+/**
+ * Compute a difference hash (dHash) for the given image buffer.
+ *
+ * dHash works by down-sampling the image to a small grid and comparing
+ * adjacent pixel intensities. Each comparison yields one bit: 1 if the
+ * left (or top) pixel is brighter, 0 otherwise. The resulting bit string
+ * is compact and resilient to minor transformations like resizing or
+ * compression.
+ */
 export async function computeDHash(
   buffer: Buffer,
   options?: ComputeDHashOptions,
@@ -12,9 +21,13 @@ export async function computeDHash(
   const hashSize = options?.hashSize ?? DEFAULT_HASH_SIZE;
 
   switch (hashSize) {
+    // Grid is (cols+1) × rows so that column-wise comparisons produce
+    // exactly cols × rows = bitLength bits.
     case HashSize.BIT_64:
       return computeHorizontalDHash(buffer, 9, 8);
     case HashSize.BIT_128: {
+      // Concatenate horizontal and vertical hashes (64 bits each) to
+      // capture gradient information in both directions.
       const [h, v] = await Promise.all([
         computeHorizontalDHash(buffer, 9, 8),
         computeVerticalDHash(buffer, 8, 9),
@@ -33,6 +46,10 @@ async function computeHorizontalDHash(
   width: number,
   height: number,
 ): Promise<string> {
+  // Composite transparent pixels onto a black background so the hash is
+  // deterministic regardless of alpha channel presence. Then convert to
+  // greyscale and resize to the small grid. "nearest" interpolation keeps
+  // sharp edges which makes hashes more stable for synthetic/placeholder images.
   const { data } = await sharp(buffer)
     .flatten({ background: { r: 0, g: 0, b: 0 } })
     .greyscale()
@@ -40,6 +57,7 @@ async function computeHorizontalDHash(
     .raw()
     .toBuffer({ resolveWithObject: true });
 
+  // Compare each pixel with its right neighbour; set the bit if brighter.
   const cols = width - 1;
   let hash = BigInt(0);
   for (let y = 0; y < height; y++) {
@@ -57,6 +75,7 @@ async function computeHorizontalDHash(
   return hash.toString(16).padStart(hexLen, "0");
 }
 
+/** Same as horizontal dHash but compares each pixel with the one below. */
 async function computeVerticalDHash(
   buffer: Buffer,
   width: number,
