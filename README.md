@@ -41,6 +41,7 @@ if (result.isPlaceholder) {
 | `hashSize` | `HashSize` | `HashSize.BIT_64` | Hash size preset (see [Hash Size Presets](#hash-size-presets)) |
 | `threshold` | `number` | Preset default | Max Hamming distance to consider a match (integer from 0 to preset bit length) |
 | `concurrency` | `number` | `8` | Max concurrent image fetches in `checkMany` (positive integer) |
+| `trimWhitespace` | `boolean` | `true` | Trim exact opaque white and fully transparent edge whitespace before hashing |
 
 Invalid option values throw a `RangeError`.
 
@@ -124,6 +125,10 @@ const buffer = Buffer.from(await response.arrayBuffer());
 const hash64 = await computeDHash(buffer); // 16-char hex (default BIT_64)
 const hash128 = await computeDHash(buffer, { hashSize: HashSize.BIT_128 }); // 32-char hex
 const hash256 = await computeDHash(buffer, { hashSize: HashSize.BIT_256 }); // 64-char hex
+const trimmedHash = await computeDHash(buffer, {
+  hashSize: HashSize.BIT_64,
+  trimWhitespace: true,
+});
 ```
 
 #### `hammingDistance(a, b)`
@@ -147,6 +152,8 @@ The package uses the [dHash](http://www.hackerfactor.com/blog/index.php?/archive
 2. Convert to grayscale
 3. Compare adjacent pixels (horizontal, vertical, or both depending on preset)
 4. Encode the result as a hex string
+
+Before hashing, the detector can trim edge bands made entirely of exact opaque white pixels (`255,255,255,255`) or fully transparent pixels (`alpha = 0`). After cropping, hashing still uses the standard grayscale dHash pipeline.
 
 Two images are compared by counting the number of differing bits (Hamming distance). Identical images have distance 0. The default threshold varies by preset (e.g., 10 for BIT_64) and represents the maximum number of differing bits to consider a match.
 

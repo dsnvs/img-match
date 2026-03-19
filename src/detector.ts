@@ -15,6 +15,7 @@ export interface DetectorOptions {
   /** Maximum number of images fetched and hashed in parallel. Default: 8. */
   concurrency?: number;
   hashSize?: HashSize;
+  trimWhitespace?: boolean;
 }
 
 export interface PlaceholderResult {
@@ -40,6 +41,7 @@ export class PlaceholderDetector {
   private concurrency: number;
   private hashSize: HashSize;
   private bitLength: number;
+  private trimWhitespace: boolean;
 
   constructor(options: DetectorOptions = {}) {
     const hashSize = options.hashSize ?? DEFAULT_HASH_SIZE;
@@ -65,6 +67,7 @@ export class PlaceholderDetector {
     this.concurrency = concurrency;
     this.hashSize = hashSize;
     this.bitLength = preset.bitLength;
+    this.trimWhitespace = options.trimWhitespace ?? true;
   }
 
   /**
@@ -73,7 +76,10 @@ export class PlaceholderDetector {
    */
   async addPlaceholder(imageUrl: string, label: string): Promise<void> {
     const buffer = await this.fetchImage(imageUrl);
-    const hash = await computeDHash(buffer, { hashSize: this.hashSize });
+    const hash = await computeDHash(buffer, {
+      hashSize: this.hashSize,
+      trimWhitespace: this.trimWhitespace,
+    });
     const existing = this.placeholders.findIndex((p) => p.label === label);
     if (existing !== -1) {
       this.placeholders[existing] = { label, hash };
@@ -89,7 +95,10 @@ export class PlaceholderDetector {
     }
 
     const buffer = await this.fetchImage(imageUrl);
-    const hash = await computeDHash(buffer, { hashSize: this.hashSize });
+    const hash = await computeDHash(buffer, {
+      hashSize: this.hashSize,
+      trimWhitespace: this.trimWhitespace,
+    });
     return this.compare(hash);
   }
 

@@ -1,11 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { createServer, type Server } from "http";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import sharp from "sharp";
 import { PlaceholderDetector } from "./detector.js";
 import { HashSize } from "./hash-size.js";
-
-let server: Server;
-let port: number;
 
 // Test images served by local HTTP server
 const images: Record<string, Buffer> = {};
@@ -44,39 +40,100 @@ async function makeGradient(width = 64, height = 64): Promise<Buffer> {
   return sharp(pixels, { raw: { width, height, channels: 3 } }).png().toBuffer();
 }
 
+async function makeWhiteBorderImage(border = 8, size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: size - border * 2,
+            height: size - border * 2,
+            channels: 4,
+            background: { r: 128, g: 128, b: 128, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function makeTransparentBorderImage(border = 8, size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: size - border * 2,
+            height: size - border * 2,
+            channels: 4,
+            background: { r: 128, g: 128, b: 128, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
 beforeAll(async () => {
   images["placeholder-gray"] = await makeImage(128, 128, 128);
   images["placeholder-gray-small"] = await makeImage(128, 128, 128, 32);
+  images["placeholder-gray-white-border"] = await makeWhiteBorderImage();
+  images["placeholder-gray-transparent-border"] = await makeTransparentBorderImage();
   images["placeholder-blue"] = await makeImage(0, 0, 200);
   images["real-gradient"] = await makeGradient();
   images["real-noise"] = await makeNoise();
 
-  server = createServer((req, res) => {
-    const name = req.url?.slice(1); // strip leading /
-    if (name && images[name]) {
-      res.writeHead(200, { "Content-Type": "image/png" });
-      res.end(images[name]);
-    } else {
-      res.writeHead(404);
-      res.end();
-    }
-  });
+  vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+    const rawUrl = typeof input === "string" ? input : input.url;
+    const parsed = new URL(rawUrl);
 
-  await new Promise<void>((resolve) => {
-    server.listen(0, () => {
-      const addr = server.address();
-      port = typeof addr === "object" && addr ? addr.port : 0;
-      resolve();
+    if (parsed.port === "1") {
+      throw new TypeError("fetch failed");
+    }
+
+    const name = parsed.pathname.slice(1);
+    const image = images[name];
+    if (!image) {
+      return new Response(null, { status: 404, statusText: "Not Found" });
+    }
+
+    return new Response(image, {
+      status: 200,
+      headers: { "Content-Type": "image/png" },
     });
   });
 });
 
 afterAll(() => {
-  server.close();
+  vi.restoreAllMocks();
 });
 
 function url(name: string): string {
-  return `http://localhost:${port}/${name}`;
+  return `https://img.test/${name}`;
 }
 
 describe("PlaceholderDetector", () => {
@@ -122,6 +179,36 @@ describe("PlaceholderDetector", () => {
     const result = await detector.isPlaceholder(url("placeholder-gray"));
     expect(result.isPlaceholder).toBe(true);
     expect(result.distance).toBe(0);
+  });
+
+  it("trims whitespace by default when hashing detector inputs", async () => {
+    const detector = new PlaceholderDetector({ threshold: 0 });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const result = await detector.isPlaceholder(url("placeholder-gray-white-border"));
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("gray");
+  });
+
+  it("can disable whitespace trimming for legacy detector behavior", async () => {
+    const detector = new PlaceholderDetector({
+      threshold: 0,
+      trimWhitespace: false,
+    });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const result = await detector.isPlaceholder(url("placeholder-gray-white-border"));
+    expect(result.isPlaceholder).toBe(false);
+  });
+
+  it("treats transparent borders as removable whitespace by default", async () => {
+    const detector = new PlaceholderDetector({ threshold: 0 });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const result = await detector.isPlaceholder(
+      url("placeholder-gray-transparent-border"),
+    );
+    expect(result.isPlaceholder).toBe(true);
   });
 
   it("checkMany returns results for all URLs", async () => {
