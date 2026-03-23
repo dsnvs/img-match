@@ -1,9 +1,15 @@
 import sharp from "sharp";
 import { DEFAULT_HASH_SIZE, HashSize } from "./hash-size.js";
 
+export interface ProbeSize {
+  width: number;
+  height: number;
+}
+
 export interface ComputeDHashOptions {
   hashSize?: HashSize;
   trimWhitespace?: boolean;
+  probeSize?: ProbeSize;
 }
 
 /**
@@ -22,7 +28,7 @@ export async function computeDHash(
   const hashSize = options?.hashSize ?? DEFAULT_HASH_SIZE;
   const trimWhitespace = options?.trimWhitespace ?? false;
   const preparedBuffer = trimWhitespace
-    ? await trimImageWhitespace(buffer, hashSize)
+    ? await trimImageWhitespace(buffer, hashSize, options?.probeSize)
     : buffer;
 
   switch (hashSize) {
@@ -46,11 +52,6 @@ export async function computeDHash(
   }
 }
 
-interface ProbeSize {
-  width: number;
-  height: number;
-}
-
 interface ContentBounds {
   left: number;
   top: number;
@@ -72,7 +73,7 @@ interface CropRect {
 
 let canonicalBlankImagePromise: Promise<Buffer> | null = null;
 
-function getTrimProbeSize(hashSize: HashSize): ProbeSize {
+function getMinimumProbeSize(hashSize: HashSize): ProbeSize {
   switch (hashSize) {
     case HashSize.BIT_64:
       return { width: 9, height: 8 };
@@ -85,6 +86,56 @@ function getTrimProbeSize(hashSize: HashSize): ProbeSize {
   }
 }
 
+export function resolveTrimProbeSize(
+  hashSize: HashSize,
+  probeSize?: ProbeSize,
+): ProbeSize {
+  const minimumProbeSize = getMinimumProbeSize(hashSize);
+  if (!probeSize) {
+    return minimumProbeSize;
+  }
+
+  return {
+    width: validateProbeDimension(
+      "width",
+      probeSize.width,
+      minimumProbeSize.width,
+    ),
+    height: validateProbeDimension(
+      "height",
+      probeSize.height,
+      minimumProbeSize.height,
+    ),
+  };
+}
+
+function validateProbeDimension(
+  axis: "width" | "height",
+  value: number,
+  minimum: number,
+): number {
+  if (!Number.isInteger(value) || value < minimum) {
+    throw new RangeError(
+      `\`probeSize.${axis}\` must be an integer greater than or equal to ${minimum}`,
+    );
+  }
+
+  return value;
+}
+
+function clampProbeSizeToSource(
+  probeSize: ProbeSize,
+  sourceSize: SourceSize,
+): ProbeSize {
+  return {
+    width: Math.max(1, Math.floor(Math.min(probeSize.width, sourceSize.width))),
+    height: Math.max(
+      1,
+      Math.floor(Math.min(probeSize.height, sourceSize.height)),
+    ),
+  };
+}
+
 function isWhitespacePixel(r: number, g: number, b: number, a: number): boolean {
   return a === 0 || (r === 255 && g === 255 && b === 255 && a === 255);
 }
@@ -92,6 +143,7 @@ function isWhitespacePixel(r: number, g: number, b: number, a: number): boolean 
 async function trimImageWhitespace(
   buffer: Buffer,
   hashSize: HashSize,
+  probeSize?: ProbeSize,
 ): Promise<Buffer> {
   const image = sharp(buffer, { failOn: "none" });
   const metadata = await image.metadata();
@@ -100,21 +152,32 @@ async function trimImageWhitespace(
     return buffer;
   }
 
-  const probeSize = getTrimProbeSize(hashSize);
+  const resolvedProbeSize = resolveTrimProbeSize(hashSize, probeSize);
+  const effectiveProbeSize = clampProbeSizeToSource(resolvedProbeSize, {
+    width: metadata.width,
+    height: metadata.height,
+  });
   // Read metadata from the original image size and build the probe separately,
   // since resizing the probe would destroy the source dimensions needed for mapping.
   const { data } = await sharp(buffer, { failOn: "none" })
     .ensureAlpha()
-    .resize(probeSize.width, probeSize.height, { fit: "fill", kernel: "nearest" })
+    .resize(effectiveProbeSize.width, effectiveProbeSize.height, {
+      fit: "fill",
+      kernel: "nearest",
+    })
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const bounds = findContentBounds(data, probeSize.width, probeSize.height);
+  const bounds = findContentBounds(
+    data,
+    effectiveProbeSize.width,
+    effectiveProbeSize.height,
+  );
   if (!bounds) {
     return createCanonicalBlankImage();
   }
 
-  const crop = mapBoundsToSource(bounds, probeSize, {
+  const crop = mapBoundsToSource(bounds, effectiveProbeSize, {
     width: metadata.width,
     height: metadata.height,
   });

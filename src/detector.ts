@@ -1,4 +1,8 @@
-import { computeDHash } from "./dhash.js";
+import {
+  computeDHash,
+  resolveTrimProbeSize,
+  type ProbeSize,
+} from "./dhash.js";
 import { hammingDistance } from "./hamming.js";
 import {
   DEFAULT_HASH_SIZE,
@@ -16,6 +20,7 @@ export interface DetectorOptions {
   concurrency?: number;
   hashSize?: HashSize;
   trimWhitespace?: boolean;
+  probeSize?: ProbeSize;
 }
 
 export interface PlaceholderResult {
@@ -42,10 +47,18 @@ export class PlaceholderDetector {
   private hashSize: HashSize;
   private bitLength: number;
   private trimWhitespace: boolean;
+  private probeSize?: ProbeSize;
 
   constructor(options: DetectorOptions = {}) {
     const hashSize = options.hashSize ?? DEFAULT_HASH_SIZE;
     const preset = getHashPreset(hashSize);
+    const trimWhitespace = options.trimWhitespace ?? true;
+    const probeSize =
+      options.probeSize === undefined
+        ? undefined
+        : trimWhitespace
+          ? resolveTrimProbeSize(hashSize, options.probeSize)
+          : { width: options.probeSize.width, height: options.probeSize.height };
 
     const threshold = options.threshold ?? preset.defaultThreshold;
     if (
@@ -67,7 +80,8 @@ export class PlaceholderDetector {
     this.concurrency = concurrency;
     this.hashSize = hashSize;
     this.bitLength = preset.bitLength;
-    this.trimWhitespace = options.trimWhitespace ?? true;
+    this.trimWhitespace = trimWhitespace;
+    this.probeSize = probeSize;
   }
 
   /**
@@ -79,6 +93,7 @@ export class PlaceholderDetector {
     const hash = await computeDHash(buffer, {
       hashSize: this.hashSize,
       trimWhitespace: this.trimWhitespace,
+      probeSize: this.probeSize,
     });
     const existing = this.placeholders.findIndex((p) => p.label === label);
     if (existing !== -1) {
@@ -98,6 +113,7 @@ export class PlaceholderDetector {
     const hash = await computeDHash(buffer, {
       hashSize: this.hashSize,
       trimWhitespace: this.trimWhitespace,
+      probeSize: this.probeSize,
     });
     return this.compare(hash);
   }
