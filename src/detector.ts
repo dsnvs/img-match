@@ -85,11 +85,11 @@ export class PlaceholderDetector {
   }
 
   /**
-   * Download a known placeholder image and store its hash.
+   * Register a known placeholder image and store its hash.
    * If a placeholder with the same label already exists, its hash is updated.
    */
-  async addPlaceholder(imageUrl: string, label: string): Promise<void> {
-    const buffer = await this.fetchImage(imageUrl);
+  async addPlaceholder(image: string | Buffer, label: string): Promise<void> {
+    const buffer = await this.resolveImage(image);
     const hash = await computeDHash(buffer, {
       hashSize: this.hashSize,
       trimWhitespace: this.trimWhitespace,
@@ -104,12 +104,12 @@ export class PlaceholderDetector {
   }
 
   /** Check a single image against all registered placeholders. */
-  async isPlaceholder(imageUrl: string): Promise<PlaceholderResult> {
+  async isPlaceholder(image: string | Buffer): Promise<PlaceholderResult> {
     if (this.placeholders.length === 0) {
       return this.createNoMatchResult();
     }
 
-    const buffer = await this.fetchImage(imageUrl);
+    const buffer = await this.resolveImage(image);
     const hash = await computeDHash(buffer, {
       hashSize: this.hashSize,
       trimWhitespace: this.trimWhitespace,
@@ -123,12 +123,12 @@ export class PlaceholderDetector {
    * Individual failures are captured in the result's `error` field rather
    * than aborting the entire batch.
    */
-  async checkMany(imageUrls: string[]): Promise<PlaceholderResult[]> {
+  async checkMany(images: (string | Buffer)[]): Promise<PlaceholderResult[]> {
     const results: PlaceholderResult[] = [];
-    for (let i = 0; i < imageUrls.length; i += this.concurrency) {
-      const batch = imageUrls.slice(i, i + this.concurrency);
+    for (let i = 0; i < images.length; i += this.concurrency) {
+      const batch = images.slice(i, i + this.concurrency);
       const batchResults = await Promise.allSettled(
-        batch.map((url) => this.isPlaceholder(url)),
+        batch.map((img) => this.isPlaceholder(img)),
       );
       for (const result of batchResults) {
         if (result.status === "fulfilled") {
@@ -185,8 +185,10 @@ export class PlaceholderDetector {
     };
   }
 
-  private async fetchImage(imageUrl: string): Promise<Buffer> {
-    const response = await fetch(imageUrl);
+  /** Resolve an image input to a Buffer — returns buffers as-is, fetches URLs. */
+  private async resolveImage(image: string | Buffer): Promise<Buffer> {
+    if (Buffer.isBuffer(image)) return image;
+    const response = await fetch(image);
     if (!response.ok) {
       throw new Error(
         `Failed to fetch image: ${response.status} ${response.statusText}`,

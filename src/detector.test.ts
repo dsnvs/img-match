@@ -426,3 +426,56 @@ describe("PlaceholderDetector", () => {
     expect(result.distance).toBeGreaterThan(0);
   });
 });
+
+describe("PlaceholderDetector — Buffer input", () => {
+  it("accepts a Buffer for addPlaceholder and isPlaceholder", async () => {
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(images["placeholder-gray"], "gray");
+    const result = await detector.isPlaceholder(images["placeholder-gray"]);
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.confidence).toBe(1);
+    expect(result.matchedPlaceholder).toBe("gray");
+    expect(result.distance).toBe(0);
+  });
+
+  it("matches a buffer placeholder against a URL check", async () => {
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(images["placeholder-gray"], "gray");
+    const result = await detector.isPlaceholder(url("placeholder-gray"));
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("gray");
+  });
+
+  it("matches a URL placeholder against a buffer check", async () => {
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+    const result = await detector.isPlaceholder(images["placeholder-gray"]);
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("gray");
+  });
+
+  it("checkMany accepts a mix of strings and buffers", async () => {
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(images["placeholder-gray"], "gray");
+    const results = await detector.checkMany([
+      images["placeholder-gray"],
+      url("real-gradient"),
+      images["real-noise"],
+    ]);
+    expect(results).toHaveLength(3);
+    expect(results[0].isPlaceholder).toBe(true);
+    expect(results[1].isPlaceholder).toBe(false);
+    expect(results[2].isPlaceholder).toBe(false);
+  });
+
+  it("does not call fetch when only buffers are provided", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockClear();
+
+    const detector = new PlaceholderDetector();
+    await detector.addPlaceholder(images["placeholder-gray"], "gray");
+    await detector.isPlaceholder(images["placeholder-gray"]);
+
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+});

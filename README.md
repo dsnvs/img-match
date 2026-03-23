@@ -30,6 +30,20 @@ if (result.isPlaceholder) {
 }
 ```
 
+Or use buffers directly (e.g., from a database or S3):
+
+```typescript
+import { readFile } from "node:fs/promises";
+
+const detector = new PlaceholderDetector();
+
+const placeholderBytes = await readFile("./placeholders/default.png");
+await detector.addPlaceholder(placeholderBytes, "default");
+
+const itemBytes = await readFile("./images/widget.png");
+const result = await detector.isPlaceholder(itemBytes);
+```
+
 ## API
 
 ### `PlaceholderDetector`
@@ -45,33 +59,33 @@ if (result.isPlaceholder) {
 
 Invalid option values throw a `RangeError`.
 
-#### `detector.addPlaceholder(imageUrl, label)`
+#### `detector.addPlaceholder(image, label)`
 
-Fetches an image from the URL, computes its hash, and registers it with the given label.
+Accepts a URL string or a `Buffer` of image bytes. Computes the image's hash and registers it with the given label. When a `Buffer` is passed, no HTTP request is made.
 
 ```typescript
 await detector.addPlaceholder("https://cdn.example.com/placeholder.png", "no-image");
 ```
 
-#### `detector.isPlaceholder(imageUrl)`
+#### `detector.isPlaceholder(image)`
 
-Checks a single image against all registered placeholders. Returns a `PlaceholderResult`.
+Accepts a URL string or a `Buffer`. Checks the image against all registered placeholders. Returns a `PlaceholderResult`.
 
 If no placeholders are registered, returns the standard non-match result without fetching the image.
 
-Rejects if the image cannot be fetched or decoded.
+Rejects if the image cannot be fetched (for URLs) or decoded.
 
 ```typescript
 const result = await detector.isPlaceholder("https://cdn.example.com/items/widget.png");
 ```
 
-#### `detector.checkMany(imageUrls)`
+#### `detector.checkMany(images)`
 
-Checks multiple images concurrently, respecting the configured concurrency limit. Returns an array of `PlaceholderResult` in the same order as the input URLs.
+Checks multiple images concurrently, respecting the configured concurrency limit. Each element can be a URL string or a `Buffer`. Returns an array of `PlaceholderResult` in the same input order.
 
-If no placeholders are registered, returns one standard non-match result per URL without fetching any images.
+If no placeholders are registered, returns one standard non-match result per input without fetching or hashing any images.
 
-If an individual URL fails to fetch or decode, `checkMany` does not reject the whole call. Instead, that URL's result contains `isPlaceholder: false`, `confidence: 0`, `distance: <preset max>`, and an `error` message.
+If an individual image fails to fetch (for URLs) or decode, `checkMany` does not reject the whole call. Instead, that entry's result contains `isPlaceholder: false`, `confidence: 0`, `distance: <preset max>`, and an `error` message.
 
 ```typescript
 const results = await detector.checkMany([
@@ -88,7 +102,7 @@ const results = await detector.checkMany([
   confidence: number;           // 0 to 1 (1 = exact match)
   matchedPlaceholder: string | null; // label of the matched placeholder, or null when no placeholder is within threshold
   distance: number;             // raw Hamming distance (0 to preset bit length)
-  error?: string;               // present when checkMany could not process that URL
+  error?: string;               // present when checkMany could not process that image
 }
 ```
 
