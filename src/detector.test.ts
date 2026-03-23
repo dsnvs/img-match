@@ -102,6 +102,7 @@ beforeAll(async () => {
   images["placeholder-gray"] = await makeImage(128, 128, 128);
   images["placeholder-gray-small"] = await makeImage(128, 128, 128, 32);
   images["placeholder-gray-white-border"] = await makeWhiteBorderImage();
+  images["placeholder-gray-white-border-tight"] = await makeWhiteBorderImage(2, 12);
   images["placeholder-gray-transparent-border"] = await makeTransparentBorderImage();
   images["placeholder-blue"] = await makeImage(0, 0, 200);
   images["real-gradient"] = await makeGradient();
@@ -209,6 +210,57 @@ describe("PlaceholderDetector", () => {
       url("placeholder-gray-transparent-border"),
     );
     expect(result.isPlaceholder).toBe(true);
+  });
+
+  it("uses a custom trim probe size when the default detector probe misses the border", async () => {
+    const defaultDetector = new PlaceholderDetector({
+      threshold: 0,
+    });
+    await defaultDetector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const defaultResult = await defaultDetector.isPlaceholder(
+      url("placeholder-gray-white-border-tight"),
+    );
+    expect(defaultResult.isPlaceholder).toBe(false);
+
+    const detector = new PlaceholderDetector({
+      threshold: 0,
+      probeSize: { width: 32, height: 24 },
+    });
+    await detector.addPlaceholder(url("placeholder-gray"), "gray");
+
+    const result = await detector.isPlaceholder(
+      url("placeholder-gray-white-border-tight"),
+    );
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("gray");
+  });
+
+  it("validates probe size eagerly for detector callers", () => {
+    expect(
+      () => new PlaceholderDetector({ probeSize: { width: 8, height: 8 } }),
+    ).toThrow(/probeSize/);
+  });
+
+  it("snapshots the validated probe size instead of reusing the caller object", async () => {
+    const probeSize = { width: 32, height: 24 };
+    const detector = new PlaceholderDetector({
+      threshold: 0,
+      probeSize,
+    });
+
+    probeSize.width = 8;
+    probeSize.height = 8;
+
+    await expect(
+      detector.addPlaceholder(url("placeholder-gray"), "gray"),
+    ).resolves.toBeUndefined();
+
+    const result = await detector.isPlaceholder(
+      url("placeholder-gray-white-border-tight"),
+    );
+    expect(result.isPlaceholder).toBe(true);
+    expect(result.matchedPlaceholder).toBe("gray");
   });
 
   it("checkMany returns results for all URLs", async () => {
