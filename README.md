@@ -33,6 +33,7 @@ if (result.isPlaceholder) {
 Or use buffers directly (e.g., from a database or S3):
 
 ```typescript
+import { PlaceholderDetector } from "img-match";
 import { readFile } from "node:fs/promises";
 
 const detector = new PlaceholderDetector();

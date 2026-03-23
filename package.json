@@ -1,6 +1,6 @@
 {
   "name": "img-match",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Perceptual image matching using dHash — detect duplicates, placeholders, and near-identical images",
   "type": "module",
   "files": [
