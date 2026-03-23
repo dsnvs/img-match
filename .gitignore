@@ -3,3 +3,5 @@ dist/
 .DS_STORE
 DO-NOT-COMMIT/
 .*/
+!.github/
+*.tgz
