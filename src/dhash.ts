@@ -27,8 +27,11 @@ export async function computeDHash(
 ): Promise<string> {
   const hashSize = options?.hashSize ?? DEFAULT_HASH_SIZE;
   const trimWhitespace = options?.trimWhitespace ?? true;
-  const preparedBuffer = trimWhitespace
-    ? await trimImageWhitespace(buffer, hashSize, options?.probeSize)
+  const crop = trimWhitespace
+    ? await detectTrimCrop(buffer, hashSize, options?.probeSize)
+    : null;
+  const preparedBuffer = crop
+    ? await sharp(buffer, { failOn: "none" }).extract(crop).toBuffer()
     : buffer;
 
   switch (hashSize) {
@@ -143,16 +146,16 @@ function isWhitespacePixel(r: number, g: number, b: number, a: number): boolean 
   return a === 0 || (r === 255 && g === 255 && b === 255 && a === 255);
 }
 
-async function trimImageWhitespace(
+async function detectTrimCrop(
   buffer: Buffer,
   hashSize: HashSize,
   probeSize?: ProbeSize,
-): Promise<Buffer> {
+): Promise<CropRect | null> {
   const image = sharp(buffer, { failOn: "none" });
   const metadata = await image.metadata();
 
   if (!metadata.width || !metadata.height) {
-    return buffer;
+    return null;
   }
 
   const resolvedProbeSize = resolveTrimProbeSize(hashSize, probeSize);
@@ -177,9 +180,9 @@ async function trimImageWhitespace(
     effectiveProbeSize.height,
   );
   if (!bounds) {
-    // All pixels are whitespace — return original to preserve distinct hashes
-    // rather than collapsing to a canonical blank that erases real content.
-    return buffer;
+    // All whitespace — caller will use original buffer to preserve distinct
+    // hashes rather than collapsing to a canonical blank.
+    return null;
   }
 
   const crop = mapBoundsToSource(bounds, effectiveProbeSize, {
@@ -193,13 +196,10 @@ async function trimImageWhitespace(
     crop.width === metadata.width &&
     crop.height === metadata.height
   ) {
-    return buffer;
+    return null;
   }
 
-  return sharp(buffer, { failOn: "none" })
-    .extract(crop)
-    .png()
-    .toBuffer();
+  return crop;
 }
 
 function findContentBounds(
