@@ -478,4 +478,25 @@ describe("PlaceholderDetector — Buffer input", () => {
 
     expect(fetchMock).not.toHaveBeenCalled();
   });
+
+  it("checkMany returns non-match results for all-Buffer inputs when no placeholders are registered", async () => {
+    const fetchMock = vi.mocked(globalThis.fetch);
+    fetchMock.mockClear();
+
+    const detector = new PlaceholderDetector();
+    const results = await detector.checkMany([
+      images["placeholder-gray"],
+      images["real-noise"],
+      images["real-gradient"],
+    ]);
+
+    expect(results).toHaveLength(3);
+    for (const result of results) {
+      expect(result.isPlaceholder).toBe(false);
+      expect(result.confidence).toBe(0);
+      expect(result.matchedPlaceholder).toBeNull();
+      expect(result.distance).toBe(64);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
 });
