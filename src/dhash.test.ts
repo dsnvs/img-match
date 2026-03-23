@@ -26,6 +26,45 @@ async function horizontalGradient(width = 64, height = 64): Promise<Buffer> {
   return sharp(pixels, { raw: { width, height, channels: 3 } }).png().toBuffer();
 }
 
+async function rectSolidImage(
+  r: number, g: number, b: number, width: number, height: number,
+): Promise<Buffer> {
+  return sharp({
+    create: { width, height, channels: 3, background: { r, g, b } },
+  }).png().toBuffer();
+}
+
+async function rectImageWithWhiteBorder(
+  border: number, width: number, height: number,
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: width - border * 2,
+            height: height - border * 2,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
 async function imageWithWhiteBorder(border = 8, size = 64): Promise<Buffer> {
   return sharp({
     create: {
@@ -252,6 +291,38 @@ describe("computeDHash", () => {
     });
     const borderedHash = await computeDHash(bordered, {
       hashSize: HashSize.BIT_128,
+      trimWhitespace: true,
+    });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("ignores white borders on a 30x120 image at BIT_256", async () => {
+    const base = await rectSolidImage(0, 0, 0, 30, 120);
+    const bordered = await rectImageWithWhiteBorder(10, 30, 120);
+
+    const baseHash = await computeDHash(base, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+    const borderedHash = await computeDHash(bordered, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("ignores white borders on a 31x47 image at BIT_256", async () => {
+    const base = await rectSolidImage(0, 0, 0, 31, 47);
+    const bordered = await rectImageWithWhiteBorder(5, 31, 47);
+
+    const baseHash = await computeDHash(base, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+    const borderedHash = await computeDHash(bordered, {
+      hashSize: HashSize.BIT_256,
       trimWhitespace: true,
     });
 
