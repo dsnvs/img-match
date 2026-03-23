@@ -71,8 +71,6 @@ interface CropRect {
   height: number;
 }
 
-let canonicalBlankImagePromise: Promise<Buffer> | null = null;
-
 function getMinimumProbeSize(hashSize: HashSize): ProbeSize {
   switch (hashSize) {
     case HashSize.BIT_64:
@@ -174,7 +172,9 @@ async function trimImageWhitespace(
     effectiveProbeSize.height,
   );
   if (!bounds) {
-    return createCanonicalBlankImage();
+    // All pixels are whitespace — return original to preserve distinct hashes
+    // rather than collapsing to a canonical blank that erases real content.
+    return buffer;
   }
 
   const crop = mapBoundsToSource(bounds, effectiveProbeSize, {
@@ -303,27 +303,6 @@ function mapBoundsToSource(
     width: right - left,
     height: bottom - top,
   };
-}
-
-async function createCanonicalBlankImage(): Promise<Buffer> {
-  if (!canonicalBlankImagePromise) {
-    canonicalBlankImagePromise = sharp({
-      create: {
-        width: 1,
-        height: 1,
-        channels: 4,
-        background: { r: 0, g: 0, b: 0, alpha: 0 },
-      },
-    })
-      .png()
-      .toBuffer()
-      .catch((error) => {
-        canonicalBlankImagePromise = null;
-        throw error;
-      });
-  }
-
-  return canonicalBlankImagePromise;
 }
 
 async function computeHorizontalDHash(

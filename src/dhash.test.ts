@@ -87,6 +87,48 @@ async function imageWithTransparentBorder(
     .toBuffer();
 }
 
+async function whiteSquareOnTransparent(size = 64, squareSize = 32): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: squareSize,
+            height: squareSize,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: Math.floor((size - squareSize) / 2),
+        top: Math.floor((size - squareSize) / 2),
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function solidWhiteImage(size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
 async function blankTransparentImage(size = 64): Promise<Buffer> {
   return sharp({
     create: {
@@ -299,5 +341,26 @@ describe("computeDHash", () => {
     const hashB = await computeDHash(blankB, { trimWhitespace: true });
 
     expect(hashA).toBe(hashB);
+  });
+
+  it("does not collapse white-on-transparent artwork to the blank hash", async () => {
+    const blank = await blankTransparentImage(64);
+    const whiteSquare = await whiteSquareOnTransparent(64, 32);
+
+    const blankHash = await computeDHash(blank, { trimWhitespace: true });
+    const squareHash = await computeDHash(whiteSquare, { trimWhitespace: true });
+
+    expect(squareHash).not.toBe(blankHash);
+  });
+
+  it("solid white and transparent blank produce the same all-zeros hash", async () => {
+    const blank = await blankTransparentImage(64);
+    const white = await solidWhiteImage(64);
+
+    const blankHash = await computeDHash(blank, { trimWhitespace: true });
+    const whiteHash = await computeDHash(white, { trimWhitespace: true });
+
+    expect(blankHash).toBe("0000000000000000");
+    expect(whiteHash).toBe(blankHash);
   });
 });

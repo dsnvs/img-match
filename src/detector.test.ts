@@ -98,6 +98,48 @@ async function makeTransparentBorderImage(border = 8, size = 64): Promise<Buffer
     .toBuffer();
 }
 
+async function makeWhiteSquareOnTransparent(size = 64, squareSize = 32): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: squareSize,
+            height: squareSize,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: Math.floor((size - squareSize) / 2),
+        top: Math.floor((size - squareSize) / 2),
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function makeBlankTransparentImage(size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
 beforeAll(async () => {
   images["placeholder-gray"] = await makeImage(128, 128, 128);
   images["placeholder-gray-small"] = await makeImage(128, 128, 128, 32);
@@ -107,6 +149,8 @@ beforeAll(async () => {
   images["placeholder-blue"] = await makeImage(0, 0, 200);
   images["real-gradient"] = await makeGradient();
   images["real-noise"] = await makeNoise();
+  images["blank-transparent"] = await makeBlankTransparentImage();
+  images["white-square-on-transparent"] = await makeWhiteSquareOnTransparent();
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const rawUrl = typeof input === "string" ? input : input.url;
@@ -382,5 +426,14 @@ describe("PlaceholderDetector", () => {
     expect(result.isPlaceholder).toBe(false);
     expect(result.distance).toBe(256);
     expect(result.confidence).toBe(0);
+  });
+
+  it("does not collapse white-on-transparent artwork to the blank placeholder hash", async () => {
+    const detector = new PlaceholderDetector({ threshold: 0 });
+    await detector.addPlaceholder(url("blank-transparent"), "blank");
+
+    const result = await detector.isPlaceholder(url("white-square-on-transparent"));
+    expect(result.isPlaceholder).toBe(false);
+    expect(result.distance).toBeGreaterThan(0);
   });
 });
