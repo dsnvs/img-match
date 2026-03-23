@@ -125,9 +125,9 @@ const buffer = Buffer.from(await response.arrayBuffer());
 const hash64 = await computeDHash(buffer); // 16-char hex (default BIT_64)
 const hash128 = await computeDHash(buffer, { hashSize: HashSize.BIT_128 }); // 32-char hex
 const hash256 = await computeDHash(buffer, { hashSize: HashSize.BIT_256 }); // 64-char hex
-const trimmedHash = await computeDHash(buffer, {
+const untrimmedHash = await computeDHash(buffer, {
   hashSize: HashSize.BIT_64,
-  trimWhitespace: true,
+  trimWhitespace: false, // opt out of default whitespace trimming
 });
 ```
 

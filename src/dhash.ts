@@ -26,7 +26,7 @@ export async function computeDHash(
   options?: ComputeDHashOptions,
 ): Promise<string> {
   const hashSize = options?.hashSize ?? DEFAULT_HASH_SIZE;
-  const trimWhitespace = options?.trimWhitespace ?? false;
+  const trimWhitespace = options?.trimWhitespace ?? true;
   const preparedBuffer = trimWhitespace
     ? await trimImageWhitespace(buffer, hashSize, options?.probeSize)
     : buffer;
