@@ -84,13 +84,18 @@ function getMinimumProbeSize(hashSize: HashSize): ProbeSize {
   }
 }
 
+function getDefaultProbeSize(hashSize: HashSize): ProbeSize {
+  const minimum = getMinimumProbeSize(hashSize);
+  return { width: minimum.width * 4, height: minimum.height * 4 };
+}
+
 export function resolveTrimProbeSize(
   hashSize: HashSize,
   probeSize?: ProbeSize,
 ): ProbeSize {
   const minimumProbeSize = getMinimumProbeSize(hashSize);
   if (!probeSize) {
-    return minimumProbeSize;
+    return getDefaultProbeSize(hashSize);
   }
 
   return {

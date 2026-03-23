@@ -124,10 +124,6 @@ export class PlaceholderDetector {
    * than aborting the entire batch.
    */
   async checkMany(imageUrls: string[]): Promise<PlaceholderResult[]> {
-    if (this.placeholders.length === 0) {
-      return imageUrls.map(() => this.createNoMatchResult());
-    }
-
     const results: PlaceholderResult[] = [];
     for (let i = 0; i < imageUrls.length; i += this.concurrency) {
       const batch = imageUrls.slice(i, i + this.concurrency);

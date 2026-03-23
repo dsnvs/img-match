@@ -256,20 +256,9 @@ describe("PlaceholderDetector", () => {
     expect(result.isPlaceholder).toBe(true);
   });
 
-  it("uses a custom trim probe size when the default detector probe misses the border", async () => {
-    const defaultDetector = new PlaceholderDetector({
-      threshold: 0,
-    });
-    await defaultDetector.addPlaceholder(url("placeholder-gray"), "gray");
-
-    const defaultResult = await defaultDetector.isPlaceholder(
-      url("placeholder-gray-white-border-tight"),
-    );
-    expect(defaultResult.isPlaceholder).toBe(false);
-
+  it("trims tight white borders with the default detector probe", async () => {
     const detector = new PlaceholderDetector({
       threshold: 0,
-      probeSize: { width: 32, height: 24 },
     });
     await detector.addPlaceholder(url("placeholder-gray"), "gray");
 

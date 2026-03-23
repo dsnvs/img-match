@@ -258,7 +258,7 @@ describe("computeDHash", () => {
     expect(borderedHash).toBe(baseHash);
   });
 
-  it("uses a custom trim probe size when the default probe misses the border", async () => {
+  it("trims tight white borders with the default probe size", async () => {
     const base = await solidImage(0, 0, 0, 12);
     const bordered = await imageWithWhiteBorder(2, 12);
 
@@ -268,13 +268,8 @@ describe("computeDHash", () => {
     const defaultHash = await computeDHash(bordered, {
       trimWhitespace: true,
     });
-    const customHash = await computeDHash(bordered, {
-      trimWhitespace: true,
-      probeSize: { width: 32, height: 24 },
-    });
 
-    expect(defaultHash).not.toBe(baseHash);
-    expect(customHash).toBe(baseHash);
+    expect(defaultHash).toBe(baseHash);
   });
 
   it("rejects a trim probe smaller than the selected hash grid", async () => {
@@ -292,12 +287,6 @@ describe("computeDHash", () => {
   it("clamps oversized trim probes to the image dimensions", async () => {
     const base = await solidImage(0, 0, 0, 12);
     const bordered = await imageWithWhiteBorder(2, 12);
-    const baseHash = await computeDHash(base, {
-      trimWhitespace: true,
-    });
-    const defaultHash = await computeDHash(bordered, {
-      trimWhitespace: true,
-    });
 
     const clampedHash = await computeDHash(bordered, {
       trimWhitespace: true,
@@ -307,8 +296,10 @@ describe("computeDHash", () => {
       trimWhitespace: true,
       probeSize: { width: 12, height: 12 },
     });
+    const baseHash = await computeDHash(base, {
+      trimWhitespace: true,
+    });
 
-    expect(defaultHash).not.toBe(baseHash);
     expect(clampedHash).toBe(exactHash);
     expect(clampedHash).toBe(baseHash);
   });
