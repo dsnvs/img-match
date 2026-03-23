@@ -1,19 +1,19 @@
-# placeholder-detect
+# img-match
 
 Detect placeholder images in large datasets using perceptual hashing (dHash). Tolerant of resolution changes and compression artifacts.
 
 ## Install
 
 ```bash
-npm install placeholder-detect
+npm install img-match
 ```
 
-Requires Node.js 18+ and [Sharp](https://sharp.pixelplumbing.com/).
+Requires Node.js 18+ and [Sharp](https://sharp.pixelplumbing.com/). This package is **ESM-only** — there is no CommonJS entry point.
 
 ## Quick Start
 
 ```typescript
-import { PlaceholderDetector } from "placeholder-detect";
+import { PlaceholderDetector } from "img-match";
 
 const detector = new PlaceholderDetector();
 
@@ -97,7 +97,7 @@ const results = await detector.checkMany([
 The `HashSize` enum controls the hash bit length used for comparison. The project default is `DEFAULT_HASH_SIZE` (`HashSize.BIT_64`).
 
 ```typescript
-import { PlaceholderDetector, HashSize } from "placeholder-detect";
+import { PlaceholderDetector, HashSize } from "img-match";
 
 const detector = new PlaceholderDetector({ hashSize: HashSize.BIT_128 });
 ```
@@ -117,7 +117,7 @@ These are exported for advanced use cases where you want to manage hashing and c
 Computes a perceptual hash (dHash) from an image buffer.
 
 ```typescript
-import { computeDHash, HashSize } from "placeholder-detect";
+import { computeDHash, HashSize } from "img-match";
 
 const response = await fetch("https://cdn.example.com/image.png");
 const buffer = Buffer.from(await response.arrayBuffer());
@@ -138,7 +138,7 @@ Computes the Hamming distance between two hex hash strings of the same length (1
 Throws a `TypeError` if either hash is not a valid hexadecimal string of a supported length, or if the two hashes have different lengths.
 
 ```typescript
-import { hammingDistance } from "placeholder-detect";
+import { hammingDistance } from "img-match";
 
 const dist = hammingDistance("a3f1b2c4d5e6f789", "a3f1b2c4d5e6f780");
 // dist = 1 (one bit differs)
@@ -164,28 +164,6 @@ Each preset has a default threshold that works well for most cases. If you need 
 - **Lower threshold** = stricter matching, fewer false positives
 - **Higher threshold** = looser matching, fewer false negatives
 - Use the `confidence` and `distance` fields in the result to analyze your data and find the right value
-
-### Tuning Scripts
-
-The `scripts/` directory contains helper tools for finding the ideal hash size and threshold for your dataset. All scripts run with [tsx](https://github.com/privatenumber/tsx) and share a single configuration file (`scripts/variables.ts`) where you set your placeholder URLs, test image URLs, and threshold overrides.
-
-```bash
-# Primary tuning tool — runs transform tests and compares test images against
-# placeholders at every hash size, reporting distance, confidence, and timing.
-# Set SAVE_MATCHES = true in variables.ts to save matched and non-matching
-# images to disk for visual inspection.
-npx tsx scripts/tuning-helper.ts
-
-# Cross-match — verifies that all registered placeholders match each other
-# at every hash size (requires at least 2 placeholder URLs).
-npx tsx scripts/placeholder-cross-match.ts
-
-# Benchmark — measures raw hashing + comparison throughput with network
-# removed from the equation.
-npx tsx scripts/benchmark.ts
-```
-
-See [`scripts/README.md`](scripts/README.md) for full details on configuration and each script.
 
 ## License
 
