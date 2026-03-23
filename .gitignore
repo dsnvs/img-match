@@ -1,6 +1,7 @@
 node_modules/
 dist/
-scripts/placeholder-match/
-scripts/placeholder-miss/
-scripts/.image-cache/
 .DS_STORE
+DO-NOT-COMMIT/
+.*/
+!.github/
+*.tgz

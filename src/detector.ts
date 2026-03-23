@@ -1,4 +1,8 @@
-import { computeDHash } from "./dhash.js";
+import {
+  computeDHash,
+  resolveTrimProbeSize,
+  type ProbeSize,
+} from "./dhash.js";
 import { hammingDistance } from "./hamming.js";
 import {
   DEFAULT_HASH_SIZE,
@@ -7,16 +11,27 @@ import {
 } from "./hash-size.js";
 
 export interface DetectorOptions {
+  /**
+   * Maximum Hamming distance for a hash to be considered a match.
+   * Defaults to the preset's recommended value.
+   */
   threshold?: number;
+  /** Maximum number of images fetched and hashed in parallel. Default: 8. */
   concurrency?: number;
   hashSize?: HashSize;
+  trimWhitespace?: boolean;
+  probeSize?: ProbeSize;
 }
 
 export interface PlaceholderResult {
   isPlaceholder: boolean;
+  /** 0–1 score derived from the Hamming distance: `1 - distance / bitLength`. */
   confidence: number;
+  /** Label of the closest matching placeholder, or null if no match. */
   matchedPlaceholder: string | null;
+  /** Raw Hamming distance to the closest placeholder hash. */
   distance: number;
+  /** Set only when fetching or hashing the image failed. */
   error?: string;
 }
 
@@ -31,10 +46,19 @@ export class PlaceholderDetector {
   private concurrency: number;
   private hashSize: HashSize;
   private bitLength: number;
+  private trimWhitespace: boolean;
+  private probeSize?: ProbeSize;
 
   constructor(options: DetectorOptions = {}) {
     const hashSize = options.hashSize ?? DEFAULT_HASH_SIZE;
     const preset = getHashPreset(hashSize);
+    const trimWhitespace = options.trimWhitespace ?? true;
+    const probeSize =
+      options.probeSize === undefined
+        ? undefined
+        : trimWhitespace
+          ? resolveTrimProbeSize(hashSize, options.probeSize)
+          : { width: options.probeSize.width, height: options.probeSize.height };
 
     const threshold = options.threshold ?? preset.defaultThreshold;
     if (
@@ -56,11 +80,21 @@ export class PlaceholderDetector {
     this.concurrency = concurrency;
     this.hashSize = hashSize;
     this.bitLength = preset.bitLength;
+    this.trimWhitespace = trimWhitespace;
+    this.probeSize = probeSize;
   }
 
+  /**
+   * Download a known placeholder image and store its hash.
+   * If a placeholder with the same label already exists, its hash is updated.
+   */
   async addPlaceholder(imageUrl: string, label: string): Promise<void> {
     const buffer = await this.fetchImage(imageUrl);
-    const hash = await computeDHash(buffer, { hashSize: this.hashSize });
+    const hash = await computeDHash(buffer, {
+      hashSize: this.hashSize,
+      trimWhitespace: this.trimWhitespace,
+      probeSize: this.probeSize,
+    });
     const existing = this.placeholders.findIndex((p) => p.label === label);
     if (existing !== -1) {
       this.placeholders[existing] = { label, hash };
@@ -69,21 +103,27 @@ export class PlaceholderDetector {
     }
   }
 
+  /** Check a single image against all registered placeholders. */
   async isPlaceholder(imageUrl: string): Promise<PlaceholderResult> {
     if (this.placeholders.length === 0) {
       return this.createNoMatchResult();
     }
 
     const buffer = await this.fetchImage(imageUrl);
-    const hash = await computeDHash(buffer, { hashSize: this.hashSize });
+    const hash = await computeDHash(buffer, {
+      hashSize: this.hashSize,
+      trimWhitespace: this.trimWhitespace,
+      probeSize: this.probeSize,
+    });
     return this.compare(hash);
   }
 
+  /**
+   * Check many images, processing them in batches of `concurrency` size.
+   * Individual failures are captured in the result's `error` field rather
+   * than aborting the entire batch.
+   */
   async checkMany(imageUrls: string[]): Promise<PlaceholderResult[]> {
-    if (this.placeholders.length === 0) {
-      return imageUrls.map(() => this.createNoMatchResult());
-    }
-
     const results: PlaceholderResult[] = [];
     for (let i = 0; i < imageUrls.length; i += this.concurrency) {
       const batch = imageUrls.slice(i, i + this.concurrency);
@@ -113,6 +153,8 @@ export class PlaceholderDetector {
       return this.createNoMatchResult();
     }
 
+    // Find the registered placeholder with the smallest Hamming distance.
+    // Short-circuit on an exact match (distance 0).
     let bestDistance = Infinity;
     let bestLabel: string | null = null;
 

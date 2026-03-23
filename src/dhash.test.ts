@@ -26,6 +26,161 @@ async function horizontalGradient(width = 64, height = 64): Promise<Buffer> {
   return sharp(pixels, { raw: { width, height, channels: 3 } }).png().toBuffer();
 }
 
+async function rectSolidImage(
+  r: number, g: number, b: number, width: number, height: number,
+): Promise<Buffer> {
+  return sharp({
+    create: { width, height, channels: 3, background: { r, g, b } },
+  }).png().toBuffer();
+}
+
+async function rectImageWithWhiteBorder(
+  border: number, width: number, height: number,
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width,
+      height,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: width - border * 2,
+            height: height - border * 2,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function imageWithWhiteBorder(border = 8, size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: size - border * 2,
+            height: size - border * 2,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function imageWithTransparentBorder(
+  border = 8,
+  size = 64,
+): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: size - border * 2,
+            height: size - border * 2,
+            channels: 4,
+            background: { r: 0, g: 0, b: 0, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: border,
+        top: border,
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function whiteSquareOnTransparent(size = 64, squareSize = 32): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .composite([
+      {
+        input: await sharp({
+          create: {
+            width: squareSize,
+            height: squareSize,
+            channels: 4,
+            background: { r: 255, g: 255, b: 255, alpha: 1 },
+          },
+        })
+          .png()
+          .toBuffer(),
+        left: Math.floor((size - squareSize) / 2),
+        top: Math.floor((size - squareSize) / 2),
+      },
+    ])
+    .png()
+    .toBuffer();
+}
+
+async function solidWhiteImage(size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 255, g: 255, b: 255, alpha: 1 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
+async function blankTransparentImage(size = 64): Promise<Buffer> {
+  return sharp({
+    create: {
+      width: size,
+      height: size,
+      channels: 4,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    },
+  })
+    .png()
+    .toBuffer();
+}
+
 describe("computeDHash", () => {
   it("returns a 16-character hex string", async () => {
     const buf = await solidImage(128, 128, 128);
@@ -114,5 +269,160 @@ describe("computeDHash", () => {
     const hashNoOpts = await computeDHash(buf);
     const hashWithOpts = await computeDHash(buf, { hashSize: HashSize.BIT_64 });
     expect(hashWithOpts).toBe(hashNoOpts);
+  });
+
+  it("ignores exact white borders when trimWhitespace is enabled", async () => {
+    const base = await solidImage(0, 0, 0);
+    const bordered = await imageWithWhiteBorder();
+
+    const baseHash = await computeDHash(base, { trimWhitespace: true });
+    const borderedHash = await computeDHash(bordered, { trimWhitespace: true });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("ignores exact white borders for BIT_128 when trimWhitespace is enabled", async () => {
+    const base = await solidImage(0, 0, 0);
+    const bordered = await imageWithWhiteBorder();
+
+    const baseHash = await computeDHash(base, {
+      hashSize: HashSize.BIT_128,
+      trimWhitespace: true,
+    });
+    const borderedHash = await computeDHash(bordered, {
+      hashSize: HashSize.BIT_128,
+      trimWhitespace: true,
+    });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("ignores white borders on a 30x120 image at BIT_256", async () => {
+    const base = await rectSolidImage(0, 0, 0, 30, 120);
+    const bordered = await rectImageWithWhiteBorder(10, 30, 120);
+
+    const baseHash = await computeDHash(base, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+    const borderedHash = await computeDHash(bordered, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("ignores white borders on a 31x47 image at BIT_256", async () => {
+    const base = await rectSolidImage(0, 0, 0, 31, 47);
+    const bordered = await rectImageWithWhiteBorder(5, 31, 47);
+
+    const baseHash = await computeDHash(base, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+    const borderedHash = await computeDHash(bordered, {
+      hashSize: HashSize.BIT_256,
+      trimWhitespace: true,
+    });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("trims tight white borders with the default probe size", async () => {
+    const base = await solidImage(0, 0, 0, 12);
+    const bordered = await imageWithWhiteBorder(2, 12);
+
+    const baseHash = await computeDHash(base, {
+      trimWhitespace: true,
+    });
+    const defaultHash = await computeDHash(bordered, {
+      trimWhitespace: true,
+    });
+
+    expect(defaultHash).toBe(baseHash);
+  });
+
+  it("rejects a trim probe smaller than the selected hash grid", async () => {
+    const base = await solidImage(0, 0, 0);
+
+    await expect(
+      computeDHash(base, {
+        hashSize: HashSize.BIT_256,
+        trimWhitespace: true,
+        probeSize: { width: 16, height: 16 },
+      }),
+    ).rejects.toThrow(/probeSize/);
+  });
+
+  it("clamps oversized trim probes to the image dimensions", async () => {
+    const base = await solidImage(0, 0, 0, 12);
+    const bordered = await imageWithWhiteBorder(2, 12);
+
+    const clampedHash = await computeDHash(bordered, {
+      trimWhitespace: true,
+      probeSize: { width: 512, height: 512 },
+    });
+    const exactHash = await computeDHash(bordered, {
+      trimWhitespace: true,
+      probeSize: { width: 12, height: 12 },
+    });
+    const baseHash = await computeDHash(base, {
+      trimWhitespace: true,
+    });
+
+    expect(clampedHash).toBe(exactHash);
+    expect(clampedHash).toBe(baseHash);
+  });
+
+  it("ignores fully transparent borders when trimWhitespace is enabled", async () => {
+    const base = await solidImage(0, 0, 0);
+    const bordered = await imageWithTransparentBorder();
+
+    const baseHash = await computeDHash(base, { trimWhitespace: true });
+    const borderedHash = await computeDHash(bordered, { trimWhitespace: true });
+
+    expect(borderedHash).toBe(baseHash);
+  });
+
+  it("keeps legacy behavior when trimWhitespace is disabled", async () => {
+    const base = await solidImage(0, 0, 0);
+    const bordered = await imageWithWhiteBorder();
+
+    const baseHash = await computeDHash(base, { trimWhitespace: false });
+    const borderedHash = await computeDHash(bordered, { trimWhitespace: false });
+
+    expect(borderedHash).not.toBe(baseHash);
+  });
+
+  it("produces a deterministic hash for fully transparent images", async () => {
+    const blankA = await blankTransparentImage(64);
+    const blankB = await blankTransparentImage(96);
+
+    const hashA = await computeDHash(blankA, { trimWhitespace: true });
+    const hashB = await computeDHash(blankB, { trimWhitespace: true });
+
+    expect(hashA).toBe(hashB);
+  });
+
+  it("does not collapse white-on-transparent artwork to the blank hash", async () => {
+    const blank = await blankTransparentImage(64);
+    const whiteSquare = await whiteSquareOnTransparent(64, 32);
+
+    const blankHash = await computeDHash(blank, { trimWhitespace: true });
+    const squareHash = await computeDHash(whiteSquare, { trimWhitespace: true });
+
+    expect(squareHash).not.toBe(blankHash);
+  });
+
+  it("solid white and transparent blank produce the same all-zeros hash", async () => {
+    const blank = await blankTransparentImage(64);
+    const white = await solidWhiteImage(64);
+
+    const blankHash = await computeDHash(blank, { trimWhitespace: true });
+    const whiteHash = await computeDHash(white, { trimWhitespace: true });
+
+    expect(blankHash).toBe("0000000000000000");
+    expect(whiteHash).toBe(blankHash);
   });
 });

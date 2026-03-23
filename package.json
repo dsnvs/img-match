@@ -1,32 +1,54 @@
 {
-  "name": "placeholder-detect",
+  "name": "img-match",
   "version": "0.0.1",
-  "description": "Detect placeholder images using perceptual hashing (dHash)",
+  "description": "Perceptual image matching using dHash — detect duplicates, placeholders, and near-identical images",
   "type": "module",
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "sideEffects": false,
   "exports": {
     ".": {
-      "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
     }
   },
   "scripts": {
     "build": "tsc",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "prepublishOnly": "npm run build && npm run test"
   },
   "engines": {
     "node": ">=18.0.0"
   },
+  "keywords": [
+    "image",
+    "matching",
+    "perceptual-hash",
+    "dhash",
+    "placeholder",
+    "detection",
+    "hamming-distance",
+    "image-comparison",
+    "duplicate-detection"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dsnvs/img-match.git"
+  },
+  "author": "Daniel Novaes <20563392+dsnvs@users.noreply.github.com>",
   "license": "MIT",
   "dependencies": {
     "sharp": "^0.34.5"
   },
   "devDependencies": {
+    "@types/node": "^24.10.11",
+    "tinybench": "^6.0.0",
+    "tsx": "^4.21.0",
     "typescript": "~5.9.3",
-    "vitest": "^3.2.1",
-    "@types/node": "^24.10.11"
+    "vitest": "^3.2.1"
   }
 }
