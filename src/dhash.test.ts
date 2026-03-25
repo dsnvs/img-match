@@ -110,6 +110,25 @@ describe("computeDHash", () => {
     expect(hash1).toBe(hash2);
   });
 
+  it("returns a 128-character hex string for BIT_512", async () => {
+    const buf = await solidImage(128, 128, 128);
+    const hash = await computeDHash(buf, { hashSize: HashSize.BIT_512 });
+    expect(hash).toMatch(/^[0-9a-f]{128}$/);
+  });
+
+  it("returns all zeros for a solid-color image with BIT_512", async () => {
+    const buf = await solidImage(100, 100, 100);
+    const hash = await computeDHash(buf, { hashSize: HashSize.BIT_512 });
+    expect(hash).toBe("0".repeat(128));
+  });
+
+  it("produces deterministic output for BIT_512", async () => {
+    const buf = await horizontalGradient();
+    const hash1 = await computeDHash(buf, { hashSize: HashSize.BIT_512 });
+    const hash2 = await computeDHash(buf, { hashSize: HashSize.BIT_512 });
+    expect(hash1).toBe(hash2);
+  });
+
   it("BIT_64 with options bag matches original no-options call", async () => {
     const buf = await horizontalGradient();
     const hashNoOpts = await computeDHash(buf);

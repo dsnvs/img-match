@@ -23,15 +23,12 @@ export async function computeDHash(
   switch (hashSize) {
     case HashSize.BIT_64:
       return computeHorizontalDHash(buffer, 9, 8);
-    case HashSize.BIT_128: {
-      const [h, v] = await Promise.all([
-        computeHorizontalDHash(buffer, 9, 8),
-        computeVerticalDHash(buffer, 8, 9),
-      ]);
-      return h + v;
-    }
+    case HashSize.BIT_128:
+      return computeCombinedDHash(buffer, 8);
     case HashSize.BIT_256:
       return computeHorizontalDHash(buffer, 17, 16);
+    case HashSize.BIT_512:
+      return computeCombinedDHash(buffer, 16);
     default:
       throw new TypeError(`Unsupported hash size: ${hashSize}`);
   }
@@ -71,32 +68,50 @@ async function computeHorizontalDHash(
   return hash.toString(16).padStart(hexLen, "0");
 }
 
-/** Same as horizontal dHash but compares each pixel with the one below. */
-async function computeVerticalDHash(
+/**
+ * Combined horizontal + vertical dHash on a single (size+1)×(size+1) grid,
+ * matching Ben Hoyt's dhash library behaviour. Each direction yields size²
+ * bits; the two halves are concatenated for 2×size² total bits.
+ */
+async function computeCombinedDHash(
   buffer: Buffer,
-  width: number,
-  height: number,
+  size: number,
 ): Promise<string> {
+  const gridSize = size + 1;
   const { data } = await sharp(buffer)
     .flatten({ background: { r: 0, g: 0, b: 0 } })
     .greyscale()
-    .resize(width, height, { fit: "fill", kernel: "nearest" })
+    .resize(gridSize, gridSize, { fit: "fill", kernel: "nearest" })
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const rows = height - 1;
-  let hash = BigInt(0);
-  for (let y = 0; y < rows; y++) {
-    for (let x = 0; x < width; x++) {
-      const top = data[y * width + x];
-      const bottom = data[(y + 1) * width + x];
-      if (top > bottom) {
-        hash |= BigInt(1) << BigInt(y * width + x);
+  // Horizontal: compare each pixel with its right neighbour.
+  let hHash = BigInt(0);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const left = data[y * gridSize + x];
+      const right = data[y * gridSize + x + 1];
+      if (left > right) {
+        hHash |= BigInt(1) << BigInt(y * size + x);
       }
     }
   }
 
-  const bits = rows * width;
+  // Vertical: compare each pixel with the one below.
+  let vHash = BigInt(0);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const top = data[y * gridSize + x];
+      const bottom = data[(y + 1) * gridSize + x];
+      if (top > bottom) {
+        vHash |= BigInt(1) << BigInt(y * size + x);
+      }
+    }
+  }
+
+  const bits = size * size;
   const hexLen = Math.ceil(bits / 4);
-  return hash.toString(16).padStart(hexLen, "0");
+  const hHex = hHash.toString(16).padStart(hexLen, "0");
+  const vHex = vHash.toString(16).padStart(hexLen, "0");
+  return hHex + vHex;
 }

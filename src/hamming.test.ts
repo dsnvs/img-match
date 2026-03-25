@@ -39,6 +39,10 @@ describe("hammingDistance", () => {
     expect(hammingDistance("0".repeat(64), "f".repeat(64))).toBe(256);
   });
 
+  it("supports 128-character hashes", () => {
+    expect(hammingDistance("0".repeat(128), "f".repeat(128))).toBe(512);
+  });
+
   it("rejects mixed hash lengths", () => {
     expect(() => hammingDistance("0".repeat(16), "0".repeat(32))).toThrow(/same length/);
   });

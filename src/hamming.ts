@@ -1,5 +1,5 @@
-// Hex lengths corresponding to the 64, 128, and 256-bit hash presets.
-const SUPPORTED_LENGTHS = new Set([16, 32, 64]);
+// Hex lengths corresponding to the 64, 128, 256, and 512-bit hash presets.
+const SUPPORTED_LENGTHS = new Set([16, 32, 64, 128]);
 const HEX_PATTERN = /^[0-9a-fA-F]+$/;
 
 /**
@@ -14,7 +14,7 @@ export function hammingDistance(a: string, b: string): number {
     !SUPPORTED_LENGTHS.has(b.length)
   ) {
     throw new TypeError(
-      "Hashes must be hexadecimal strings of 16, 32, or 64 characters",
+      "Hashes must be hexadecimal strings of 16, 32, 64, or 128 characters",
     );
   }
 

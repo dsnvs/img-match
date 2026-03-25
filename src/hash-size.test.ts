@@ -29,4 +29,12 @@ describe("hash presets", () => {
       defaultThreshold: 40,
     });
   });
+
+  it("returns correct metadata for BIT_512", () => {
+    expect(getHashPreset(HashSize.BIT_512)).toEqual({
+      bitLength: 512,
+      hexLength: 128,
+      defaultThreshold: 80,
+    });
+  });
 });

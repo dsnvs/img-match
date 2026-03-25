@@ -13,6 +13,8 @@ export enum HashSize {
   BIT_128 = "BIT_128",
   /** 256-bit horizontal dHash (17×16 grid). Maximum discrimination for large placeholder sets. */
   BIT_256 = "BIT_256",
+  /** 512-bit combined horizontal + vertical dHash (17×17 grid). Highest discrimination for very large or visually similar placeholder sets. */
+  BIT_512 = "BIT_512",
 }
 
 export const DEFAULT_HASH_SIZE = HashSize.BIT_64;
@@ -27,12 +29,13 @@ const PRESETS: Record<HashSize, Readonly<HashPreset>> = {
   [HashSize.BIT_64]: Object.freeze({ bitLength: 64, hexLength: 16, defaultThreshold: 10 }),
   [HashSize.BIT_128]: Object.freeze({ bitLength: 128, hexLength: 32, defaultThreshold: 20 }),
   [HashSize.BIT_256]: Object.freeze({ bitLength: 256, hexLength: 64, defaultThreshold: 40 }),
+  [HashSize.BIT_512]: Object.freeze({ bitLength: 512, hexLength: 128, defaultThreshold: 80 }),
 };
 
 export function getHashPreset(hashSize: HashSize): HashPreset {
   const preset = PRESETS[hashSize as HashSize];
   if (!preset) {
-    throw new RangeError("`hashSize` must be one of: BIT_64, BIT_128, BIT_256");
+    throw new RangeError("`hashSize` must be one of: BIT_64, BIT_128, BIT_256, BIT_512");
   }
   return preset;
 }
