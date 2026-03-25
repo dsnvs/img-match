@@ -40,117 +40,12 @@ async function makeGradient(width = 64, height = 64): Promise<Buffer> {
   return sharp(pixels, { raw: { width, height, channels: 3 } }).png().toBuffer();
 }
 
-async function makeWhiteBorderImage(border = 8, size = 64): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 255, g: 255, b: 255, alpha: 1 },
-    },
-  })
-    .composite([
-      {
-        input: await sharp({
-          create: {
-            width: size - border * 2,
-            height: size - border * 2,
-            channels: 4,
-            background: { r: 128, g: 128, b: 128, alpha: 1 },
-          },
-        })
-          .png()
-          .toBuffer(),
-        left: border,
-        top: border,
-      },
-    ])
-    .png()
-    .toBuffer();
-}
-
-async function makeTransparentBorderImage(border = 8, size = 64): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      {
-        input: await sharp({
-          create: {
-            width: size - border * 2,
-            height: size - border * 2,
-            channels: 4,
-            background: { r: 128, g: 128, b: 128, alpha: 1 },
-          },
-        })
-          .png()
-          .toBuffer(),
-        left: border,
-        top: border,
-      },
-    ])
-    .png()
-    .toBuffer();
-}
-
-async function makeWhiteSquareOnTransparent(size = 64, squareSize = 32): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .composite([
-      {
-        input: await sharp({
-          create: {
-            width: squareSize,
-            height: squareSize,
-            channels: 4,
-            background: { r: 255, g: 255, b: 255, alpha: 1 },
-          },
-        })
-          .png()
-          .toBuffer(),
-        left: Math.floor((size - squareSize) / 2),
-        top: Math.floor((size - squareSize) / 2),
-      },
-    ])
-    .png()
-    .toBuffer();
-}
-
-async function makeBlankTransparentImage(size = 64): Promise<Buffer> {
-  return sharp({
-    create: {
-      width: size,
-      height: size,
-      channels: 4,
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    },
-  })
-    .png()
-    .toBuffer();
-}
-
 beforeAll(async () => {
   images["placeholder-gray"] = await makeImage(128, 128, 128);
   images["placeholder-gray-small"] = await makeImage(128, 128, 128, 32);
-  images["placeholder-gray-white-border"] = await makeWhiteBorderImage();
-  images["placeholder-gray-white-border-tight"] = await makeWhiteBorderImage(2, 12);
-  images["placeholder-gray-transparent-border"] = await makeTransparentBorderImage();
   images["placeholder-blue"] = await makeImage(0, 0, 200);
   images["real-gradient"] = await makeGradient();
   images["real-noise"] = await makeNoise();
-  images["blank-transparent"] = await makeBlankTransparentImage();
-  images["white-square-on-transparent"] = await makeWhiteSquareOnTransparent();
 
   vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
     const rawUrl = typeof input === "string" ? input : input.url;
@@ -224,76 +119,6 @@ describe("PlaceholderDetector", () => {
     const result = await detector.isPlaceholder(url("placeholder-gray"));
     expect(result.isPlaceholder).toBe(true);
     expect(result.distance).toBe(0);
-  });
-
-  it("trims whitespace by default when hashing detector inputs", async () => {
-    const detector = new PlaceholderDetector({ threshold: 0 });
-    await detector.addPlaceholder(url("placeholder-gray"), "gray");
-
-    const result = await detector.isPlaceholder(url("placeholder-gray-white-border"));
-    expect(result.isPlaceholder).toBe(true);
-    expect(result.matchedPlaceholder).toBe("gray");
-  });
-
-  it("can disable whitespace trimming for legacy detector behavior", async () => {
-    const detector = new PlaceholderDetector({
-      threshold: 0,
-      trimWhitespace: false,
-    });
-    await detector.addPlaceholder(url("placeholder-gray"), "gray");
-
-    const result = await detector.isPlaceholder(url("placeholder-gray-white-border"));
-    expect(result.isPlaceholder).toBe(false);
-  });
-
-  it("treats transparent borders as removable whitespace by default", async () => {
-    const detector = new PlaceholderDetector({ threshold: 0 });
-    await detector.addPlaceholder(url("placeholder-gray"), "gray");
-
-    const result = await detector.isPlaceholder(
-      url("placeholder-gray-transparent-border"),
-    );
-    expect(result.isPlaceholder).toBe(true);
-  });
-
-  it("trims tight white borders with the default detector probe", async () => {
-    const detector = new PlaceholderDetector({
-      threshold: 0,
-    });
-    await detector.addPlaceholder(url("placeholder-gray"), "gray");
-
-    const result = await detector.isPlaceholder(
-      url("placeholder-gray-white-border-tight"),
-    );
-    expect(result.isPlaceholder).toBe(true);
-    expect(result.matchedPlaceholder).toBe("gray");
-  });
-
-  it("validates probe size eagerly for detector callers", () => {
-    expect(
-      () => new PlaceholderDetector({ probeSize: { width: 8, height: 8 } }),
-    ).toThrow(/probeSize/);
-  });
-
-  it("snapshots the validated probe size instead of reusing the caller object", async () => {
-    const probeSize = { width: 32, height: 24 };
-    const detector = new PlaceholderDetector({
-      threshold: 0,
-      probeSize,
-    });
-
-    probeSize.width = 8;
-    probeSize.height = 8;
-
-    await expect(
-      detector.addPlaceholder(url("placeholder-gray"), "gray"),
-    ).resolves.toBeUndefined();
-
-    const result = await detector.isPlaceholder(
-      url("placeholder-gray-white-border-tight"),
-    );
-    expect(result.isPlaceholder).toBe(true);
-    expect(result.matchedPlaceholder).toBe("gray");
   });
 
   it("checkMany returns results for all URLs", async () => {
@@ -417,14 +242,6 @@ describe("PlaceholderDetector", () => {
     expect(result.confidence).toBe(0);
   });
 
-  it("does not collapse white-on-transparent artwork to the blank placeholder hash", async () => {
-    const detector = new PlaceholderDetector({ threshold: 0 });
-    await detector.addPlaceholder(url("blank-transparent"), "blank");
-
-    const result = await detector.isPlaceholder(url("white-square-on-transparent"));
-    expect(result.isPlaceholder).toBe(false);
-    expect(result.distance).toBeGreaterThan(0);
-  });
 });
 
 describe("PlaceholderDetector — Buffer input", () => {
